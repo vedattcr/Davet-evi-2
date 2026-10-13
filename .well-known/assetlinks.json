@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.davet_evi_2.twa",
+    "sha256_cert_fingerprints": [
+      "6F:1D:98:4E:25:F0:21:78:47:47:CF:D1:93:75:B1:6C:2D:C8:9B:DB:96:97:83:0A:BC:06:36:A9:90:5B:DE:68"
+    ]
+  }
+}]
