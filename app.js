@@ -826,5 +826,17 @@
   }
   
   setTimeout(buluttanYukle, 1500);
-
+  function formatDate(dateStr, timeStr){
+    if(!dateStr) return '';
+    const parts = dateStr.split('-');
+    if(parts.length !== 3) return dateStr;
+    const gun = parts[2];
+    const ayIndex = Number(parts[1]) - 1;
+    const yil = parts[0];
+    const aylar = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    let out = `${gun} ${aylar[ayIndex]} ${yil}`;
+    if(timeStr) out += ' · ' + timeStr;
+    return out;
+  }
+  
 })();
