@@ -288,13 +288,10 @@
 
   function formatDate(dateStr, timeStr){
     if(!dateStr) return '';
-    const parts = dateStr.split('-');
-    if(parts.length !== 3) return dateStr;
-    const gun = parts[2];
-    const ayIndex = Number(parts[1]) - 1;
-    const yil = parts[0];
-    const aylar = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    let out = `${gun} ${aylar[ayIndex]} ${yil}`;
+    const d = new Date(dateStr + 'T' + (timeStr || '00:00'));
+    if(isNaN(d.getTime())) return dateStr;
+    const opts = { day:'2-digit', month:'short', year:'numeric' };
+    let out = d.toLocaleDateString('tr-TR', opts);
     if(timeStr) out += ' · ' + timeStr;
     return out;
   }
@@ -368,6 +365,19 @@
            (Number(e.snacks)||0) + (Number(e.mirror)||0) + (Number(e.ribbon)||0) + (Number(e.staff)||0);
   }
 
+  function buildWhatsAppLink(r){
+    const lines = [
+      '📸 Çekim Bilgisi',
+      '',
+      'Çift: ' + r.brideName + ' & ' + r.groomName,
+      'Etkinlik: ' + (r.eventType || 'Diğer'),
+      'Tarih: ' + formatDate(r.eventDate, r.eventTime),
+      'Telefon: ' + (r.phone || 'belirtilmedi')
+    ];
+    const text = encodeURIComponent(lines.join('\n'));
+    return 'https://api.whatsapp.com/send?text=' + text;
+  }
+
   function cardHtml(r){
     return `
       <article class="card" data-id="${r.id}" tabindex="0" role="button" aria-label="${escapeHtml(r.brideName)} ve ${escapeHtml(r.groomName)} rezervasyonunu düzenle">
@@ -391,6 +401,7 @@
           <span>Net Kâr: <strong>${formatMoney((Number(r.price)||0) - totalExpenses(r))}</strong></span>
         </div>` : ''}
         ${r.notes ? `<div class="card-desc">${escapeHtml(r.notes)}</div>` : ''}
+        <a class="wa-share-btn" href="${buildWhatsAppLink(r)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📲 WhatsApp'ta Paylaş</a>
       </article>
     `;
   }
@@ -519,14 +530,14 @@
           <span class="amount">${formatMoney(totalRevenue)}</span>
         </div>
         <div class="report-row">
-          <span>Toplam Kapora</span>
+          <span>Alınan Toplam Kapora</span>
           <span class="amount">${formatMoney(totalDeposits)}</span>
         </div>
         <div class="report-row">
           <span>Toplam Gider</span>
           <span class="amount">${formatMoney(totalExpensesSum)}</span>
         </div>
-        <div class="report-row net">
+        <div class="report-row profit">
           <span>Net Kâr</span>
           <span class="amount">${formatMoney(netProfit)}</span>
         </div>
@@ -534,62 +545,58 @@
     `;
   }
 
-  function openForm(r){
-    editingId = r ? r.id : null;
-    sheetTitle.textContent = r ? 'Rezervasyonu Düzenle' : 'Yeni Rezervasyon';
-    deleteBtn.style.display = r ? 'block' : 'none';
-    if(r){
-      document.getElementById('brideName').value = r.brideName || '';
-      document.getElementById('groomName').value = r.groomName || '';
-      document.getElementById('phone').value = r.phone || '';
-      document.getElementById('email').value = r.email || '';
-      document.getElementById('eventType').value = r.eventType || 'Nişan';
-      packageSelect.value = r.package || '';
-      eventDateInput.value = r.eventDate || '';
-      eventTimeSelect.value = r.eventTime || '10:00 - 12:00';
-      priceInput.value = r.price || '';
-      depositInput.value = r.deposit || '';
-      
-      const pay = r.payment || 'pending';
-      document.querySelectorAll('#paymentToggle .toggle-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === pay);
-      });
 
-      const st = r.status || 'tentative';
-      document.querySelectorAll('#confirmToggle .toggle-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === st);
-      });
-      expensesSection.style.display = (st === 'confirmed') ? 'block' : 'none';
+  function setTogglePressed(container, value){
+    container.querySelectorAll('button').forEach(btn => {
+      btn.setAttribute('aria-pressed', btn.dataset.value === value ? 'true' : 'false');
+    });
+  }
 
-      const exp = r.expenses || {};
-      expPhotographer.value = exp.photographer || '';
-      expCake.value = exp.cake || '';
-      expDrinks.value = exp.drinks || '';
-      expSnacks.value = exp.snacks || '';
-      expMirror.value = exp.mirror || '';
-      expRibbon.value = exp.ribbon || '';
-      expStaff.value = exp.staff || '';
+  function getToggleValue(container){
+    const active = container.querySelector('button[aria-pressed="true"]');
+    return active ? active.dataset.value : null;
+  }
 
-      document.getElementById('notes').value = r.notes || '';
-    }else{
-      form.reset();
-      document.getElementById('eventType').value = 'Nişan';
-      document.querySelectorAll('#paymentToggle .toggle-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === 'pending');
-      });
-      document.querySelectorAll('#confirmToggle .toggle-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === 'tentative');
-      });
-      expensesSection.style.display = 'none';
-      expenseInputs.forEach(i => i.value = '');
-      if(packages.length > 0) packageSelect.value = packages[0].name;
-    }
-    updateRemainingDisplay();
-    updateExpenseSummary();
+  function openSheet(reservation){
+    if(packageSheet.classList.contains('open')) closePackageSheet();
+    editingId = reservation ? reservation.id : null;
+    sheetTitle.textContent = reservation ? 'Rezervasyonu Düzenle' : 'Yeni Rezervasyon';
+    deleteBtn.style.display = reservation ? 'block' : 'none';
+
+    document.getElementById('brideName').value = reservation ? reservation.brideName : '';
+    document.getElementById('groomName').value = reservation ? reservation.groomName : '';
+    document.getElementById('phone').value = reservation ? reservation.phone : '';
+    document.getElementById('email').value = reservation ? reservation.email : '';
+    renderPackageOptions();
+    document.getElementById('package').value = reservation ? reservation.package : (packages[0] ? packages[0].name : '');
+    document.getElementById('eventType').value = reservation ? (reservation.eventType || 'Nişan') : 'Nişan';
+    document.getElementById('eventDate').value = reservation ? reservation.eventDate : '';
+    document.getElementById('eventTime').value = reservation ? reservation.eventTime : '10:00-12:00';
     refreshTimeSlotOptions();
+    document.getElementById('notes').value = reservation ? reservation.notes : '';
+    priceInput.value = reservation && reservation.price != null ? reservation.price : '';
+    depositInput.value = reservation && reservation.deposit != null ? reservation.deposit : '';
+    updateRemainingDisplay();
+
+    setTogglePressed(paymentToggle, reservation ? reservation.payment : 'pending');
+    setTogglePressed(confirmToggle, reservation ? reservation.status : 'tentative');
+
+    const status = reservation ? reservation.status : 'tentative';
+    expensesSection.hidden = status !== 'confirmed';
+    const exp = (reservation && reservation.expenses) || {};
+    expPhotographer.value = exp.photographer || '';
+    expCake.value = exp.cake || '';
+    expDrinks.value = exp.drinks || '';
+    expSnacks.value = exp.snacks || '';
+    expMirror.value = exp.mirror || '';
+    expRibbon.value = exp.ribbon || '';
+    expStaff.value = exp.staff || '';
+    updateExpenseSummary();
+
     sheet.classList.add('open');
     sheet.setAttribute('aria-hidden', 'false');
     scrim.classList.add('open');
+    setTimeout(() => document.getElementById('brideName').focus(), 250);
   }
 
   function closeSheet(){
@@ -597,10 +604,14 @@
     sheet.setAttribute('aria-hidden', 'true');
     scrim.classList.remove('open');
     editingId = null;
+    form.reset();
+    updateRemainingDisplay();
     timeSlotError.hidden = true;
+    expensesSection.hidden = true;
   }
 
-  openAddBtn.addEventListener('click', () => openForm(null));
+  // Events
+  openAddBtn.addEventListener('click', () => openSheet(null));
   closeSheetBtn.addEventListener('click', closeSheet);
   cancelBtn.addEventListener('click', closeSheet);
   scrim.addEventListener('click', () => {
@@ -609,130 +620,49 @@
   });
 
   paymentToggle.addEventListener('click', (e) => {
-    const btn = e.target.closest('.toggle-btn');
+    const btn = e.target.closest('button');
     if(!btn) return;
-    paymentToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    setTogglePressed(paymentToggle, btn.dataset.value);
   });
-
   confirmToggle.addEventListener('click', (e) => {
-    const btn = e.target.closest('.toggle-btn');
+    const btn = e.target.closest('button');
     if(!btn) return;
-    confirmToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const isConf = btn.dataset.value === 'confirmed';
-    expensesSection.style.display = isConf ? 'block' : 'none';
-    updateExpenseSummary();
+    setTogglePressed(confirmToggle, btn.dataset.value);
+    expensesSection.hidden = btn.dataset.value !== 'confirmed';
+    if(!expensesSection.hidden) updateExpenseSummary();
   });
 
   listEl.addEventListener('click', (e) => {
     const card = e.target.closest('.card');
     if(!card) return;
-    const r = reservations.find(item => item.id === card.dataset.id);
-    if(r) openForm(r);
+    const r = reservations.find(x => x.id === card.dataset.id);
+    if(r) openSheet(r);
   });
-
-  form.addEventListener('submit', async (e) => {
+  listEl.addEventListener('keydown', (e) => {
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.card');
+    if(!card) return;
     e.preventDefault();
-    const brideName = document.getElementById('brideName').value.trim();
-    const groomName = document.getElementById('groomName').value.trim();
-    const eventDate = eventDateInput.value;
-    const eventTime = eventTimeSelect.value;
-
-    if(!brideName || !groomName || !eventDate) return;
-
-    const payment = paymentToggle.querySelector('.toggle-btn.active').dataset.value;
-    const status = confirmToggle.querySelector('.toggle-btn.active').dataset.value;
-
-    const expenses = {};
-    if(status === 'confirmed'){
-      expenseInputs.forEach(input => {
-        expenses[input.dataset.expense] = Number(input.value) || 0;
-      });
-    }
-
-    const data = {
-      id: editingId || uid(),
-      brideName,
-      groomName,
-      phone: document.getElementById('phone').value.trim(),
-      email: document.getElementById('email').value.trim(),
-      eventType: document.getElementById('eventType').value,
-      package: packageSelect.value,
-      eventDate,
-      eventTime,
-      price: Number(priceInput.value) || 0,
-      deposit: Number(depositInput.value) || 0,
-      payment,
-      status,
-      expenses,
-      notes: document.getElementById('notes').value.trim(),
-      updatedAt: new Date().toISOString()
-    };
-
-    try {
-      if(window.db && window.doc && window.setDoc){
-        const { doc, setDoc } = window;
-        await setDoc(doc(window.db, "rezervasyonlar", data.id), data);
-      }
-    } catch(err) {
-      console.error("Buluta kayıt sırasında hata:", err);
-    }
-
-    if(editingId){
-      const idx = reservations.findIndex(r => r.id === editingId);
-      if(idx > -1) reservations[idx] = data;
-    }else{
-      reservations.push(data);
-    }
-
-    save();
-    closeSheet();
-    render();
-  });
-
-  deleteBtn.addEventListener('click', async () => {
-    if(!editingId) return;
-    if(!confirm('Bu rezervasyonu silmek istediğinize emin misiniz?')) return;
-    
-    try {
-      if(window.db && window.doc && window.deleteDoc){
-        await window.deleteDoc(window.doc(window.db, "rezervasyonlar", editingId));
-      }
-    } catch(err) {
-      console.error("Buluttan silme hatası:", err);
-    }
-
-    reservations = reservations.filter(r => r.id !== editingId);
-    save();
-    closeSheet();
-    render();
+    const r = reservations.find(x => x.id === card.dataset.id);
+    if(r) openSheet(r);
   });
 
   filterRow.addEventListener('click', (e) => {
-    const btn = e.target.closest('.chip');
+    const btn = e.target.closest('.filter-chip');
     if(!btn) return;
-    filterRow.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
     activeFilter = btn.dataset.filter;
-    render();
-  });
-
-  searchInput.addEventListener('input', () => {
-    searchTerm = searchInput.value.trim();
+    filterRow.querySelectorAll('.filter-chip').forEach(c => c.setAttribute('aria-pressed', c === btn ? 'true' : 'false'));
     render();
   });
 
   viewToggle.addEventListener('click', (e) => {
-    const btn = e.target.closest('.toggle-btn');
+    const btn = e.target.closest('button');
     if(!btn) return;
-    viewToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
     currentView = btn.dataset.view;
-
-    listEl.hidden = (currentView !== 'list');
-    calendarView.hidden = (currentView !== 'calendar');
-    reportView.hidden = (currentView !== 'report');
+    viewToggle.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+    calendarView.hidden = currentView !== 'calendar';
+    reportView.hidden = currentView !== 'report';
+    listEl.hidden = currentView === 'calendar' || currentView === 'report';
     render();
   });
 
@@ -745,13 +675,6 @@
     renderCalendar();
   });
 
-  calGrid.addEventListener('click', (e) => {
-    const cell = e.target.closest('.cal-cell');
-    if(!cell || cell.disabled) return;
-    selectedDate = cell.dataset.date;
-    renderCalendar();
-  });
-
   reportPrev.addEventListener('click', () => {
     reportMonth = new Date(reportMonth.getFullYear(), reportMonth.getMonth() - 1, 1);
     renderReport();
@@ -761,82 +684,177 @@
     renderReport();
   });
 
-  exportBtn.addEventListener('click', () => {
-    const data = { reservations, packages, version: 1, exportedAt: new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'dev_davet_evi_yedek_' + dateKey(new Date()) + '.json';
-    a.click();
-    URL.revokeObjectURL(url);
+  calGrid.addEventListener('click', (e) => {
+    const cell = e.target.closest('.cal-cell');
+    if(!cell || cell.disabled) return;
+    selectedDate = cell.dataset.date;
+    renderCalendar();
   });
 
+  calDayPanel.addEventListener('click', (e) => {
+    const card = e.target.closest('.card');
+    if(!card) return;
+    const r = reservations.find(x => x.id === card.dataset.id);
+    if(r) openSheet(r);
+  });
+
+  searchInput.addEventListener('input', (e) => {
+    searchTerm = e.target.value;
+    render();
+  });
+
+  deleteBtn.addEventListener('click', () => {
+    if(!editingId) return;
+    reservations = reservations.filter(r => r.id !== editingId);
+    save();
+    render();
+    closeSheet();
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const chosenDate = document.getElementById('eventDate').value;
+    const chosenTime = document.getElementById('eventTime').value;
+    const conflict = reservations.some(r => r.eventDate === chosenDate && r.eventTime === chosenTime && r.id !== editingId);
+    if(conflict){
+      timeSlotError.hidden = false;
+      return;
+    }
+
+    const data = {
+      id: editingId || uid(),
+      brideName: document.getElementById('brideName').value.trim(),
+      groomName: document.getElementById('groomName').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      package: document.getElementById('package').value,
+      eventType: document.getElementById('eventType').value,
+      eventDate: document.getElementById('eventDate').value,
+      eventTime: document.getElementById('eventTime').value,
+      price: priceInput.value === '' ? 0 : Number(priceInput.value),
+      deposit: depositInput.value === '' ? 0 : Number(depositInput.value),
+      payment: getToggleValue(paymentToggle) || 'pending',
+      status: getToggleValue(confirmToggle) || 'tentative',
+      notes: document.getElementById('notes').value.trim(),
+      expenses: {
+        photographer: Number(expPhotographer.value) || 0,
+        cake: Number(expCake.value) || 0,
+        drinks: Number(expDrinks.value) || 0,
+        snacks: Number(expSnacks.value) || 0,
+        mirror: Number(expMirror.value) || 0,
+        ribbon: Number(expRibbon.value) || 0,
+        staff: Number(expStaff.value) || 0
+      }
+    };
+
+    if(editingId){
+      const idx = reservations.findIndex(r => r.id === editingId);
+      if(idx > -1) reservations[idx] = data;
+    }else{
+      reservations.push(data);
+    }
+    save();
+    render();
+    closeSheet();
+  });
+
+  async function exportData(){
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      reservations: reservations,
+      packages: packages
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const stamp = new Date().toISOString().slice(0,10);
+    const filename = 'davet-evi-takip-yedek-' + stamp + '.json';
+
+    try{
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      return;
+    }catch(e){
+      console.error('İndirme başarısız:', e);
+    }
+    // Yedekleme mümkün olmadıysa, kullanıcı verisini kendi kopyalayabilsin diye göster
+    window.prompt('Yedek dosyası otomatik indirilemedi. Aşağıdaki metni kopyalayıp bir dosyaya kaydedebilirsin:', json);
+  }
+
+  function mergeImportedData(payload){
+    let addedReservations = 0;
+    let addedPackages = 0;
+
+    if(Array.isArray(payload.reservations)){
+      const existingIds = new Set(reservations.map(r => r.id));
+      payload.reservations.forEach(r => {
+        if(!r || typeof r !== 'object') return;
+        if(existingIds.has(r.id)){
+          r = Object.assign({}, r, { id: uid() });
+        }
+        reservations.push(r);
+        addedReservations++;
+      });
+      save();
+    }
+
+    if(Array.isArray(payload.packages)){
+      const existingNames = new Set(packages.map(p => p.name));
+      payload.packages.forEach(p => {
+        if(!p || typeof p !== 'object') return;
+        if(existingNames.has(p.name)) return; // aynı isimde paket varsa atla
+        packages.push(Object.assign({}, p, { id: uid() }));
+        addedPackages++;
+      });
+      savePackages();
+    }
+
+    renderPackageOptions();
+    render();
+    alert('İçe aktarma tamamlandı: ' + addedReservations + ' rezervasyon, ' + addedPackages + ' paket eklendi.');
+  }
+
+  exportBtn.addEventListener('click', exportData);
   importBtn.addEventListener('click', () => importFileInput.click());
   importFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if(!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = () => {
       try{
-        const parsed = JSON.parse(evt.target.result);
-        if(parsed && Array.isArray(parsed.reservations)){
-          reservations = parsed.reservations;
-          save();
-        }
-        if(parsed && Array.isArray(parsed.packages)){
-          packages = parsed.packages;
-          savePackages();
-        }
-        renderPackageOptions();
-        render();
-        alert('Yedek başarıyla içe aktarıldı.');
+        const payload = JSON.parse(reader.result);
+        mergeImportedData(payload);
       }catch(err){
-        console.error('İçe aktarma hatası:', err);
-        alert('Geçersiz yedek dosyası.');
+        alert('Dosya okunamadı. Geçerli bir yedek (.json) dosyası seçtiğinden emin ol.');
       }
       importFileInput.value = '';
     };
     reader.readAsText(file);
   });
 
+  // Init
+  load();
   loadPackages();
   renderPackageOptions();
-  load();
   render();
 
-  async function buluttanYukle() {
-    try {
-      if(window.db && window.getDocs && window.collection){
-        const querySnapshot = await window.getDocs(window.collection(window.db, "rezervasyonlar"));
-        const cloudReservations = [];
-        querySnapshot.forEach((doc) => {
-          cloudReservations.push(doc.data());
-        });
-        if(cloudReservations.length > 0){
-          reservations = cloudReservations;
-          save();
-          render();
-          console.log("Veriler buluttan başarıyla senkronize edildi.");
-        }
-      }
-    } catch(err) {
-      console.error("Buluttan veri çekme hatası:", err);
-    }
+  // Uygulama kısayolu: manifest.json'daki "Yeni Rezervasyon" kısayolu
+  // ?action=new ile açıldığında formu otomatik aç
+  if(new URLSearchParams(window.location.search).get('action') === 'new'){
+    openSheet(null);
   }
-  
-  setTimeout(buluttanYukle, 1500);
-  function formatDate(dateStr, timeStr){
-    if(!dateStr) return '';
-    const parts = dateStr.split('-');
-    if(parts.length !== 3) return dateStr;
-    const gun = parts[2];
-    const ayIndex = Number(parts[1]) - 1;
-    const yil = parts[0];
-    const aylar = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    let out = `${gun} ${aylar[ayIndex]} ${yil}`;
-    if(timeStr) out += ' · ' + timeStr;
-    return out;
-  }
-  
 })();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.error('Service worker kaydı başarısız:', err);
+    });
+  });
+}
