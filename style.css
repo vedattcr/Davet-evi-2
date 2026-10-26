@@ -491,6 +491,23 @@
     overflow:hidden;
   }
 
+  .wa-share-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:12px;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--clay);
+    font-family:'Manrope', sans-serif;
+    font-weight:700;
+    font-size:0.78rem;
+    text-decoration:none;
+  }
+  .wa-share-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
   /* Floating add button */
   .fab{
     position:fixed;
@@ -709,3 +726,4 @@
   @media (prefers-reduced-motion: reduce){
     .sheet, .scrim, .filter-chip, .status-toggle button{transition:none !important;}
   }
+  
