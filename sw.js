@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'davet-evi-takip-v2';
+const CACHE_VERSION = 'davet-evi-takip-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -68,3 +68,4 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
