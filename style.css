@@ -726,4 +726,3 @@
   @media (prefers-reduced-motion: reduce){
     .sheet, .scrim, .filter-chip, .status-toggle button{transition:none !important;}
   }
-  
