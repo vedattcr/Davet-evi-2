@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Davet Evi Takip</title>
-
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B2E28">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,16 +14,43 @@
 <link rel="icon" type="image/png" sizes="48x48" href="icon-48.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Manrope:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="app">
 
+<!-- GİRİŞ EKRANI -->
+<div id="loginScreen" style="display:none; padding:30px; max-width:400px; margin:50px auto;">
+  <h2>Dev Davet Evi</h2>
+  <p>Devam etmek için giriş yapın.</p>
+
+  <form id="loginForm">
+    <label>E-posta adresi</label>
+    <input
+      id="loginEmail"
+      type="email"
+      required
+      autocomplete="username"
+      style="display:block; width:100%; padding:12px; margin:8px 0 16px;"
+    >
+
+    <label>Şifre</label>
+    <input
+      id="loginPassword"
+      type="password"
+      required
+      autocomplete="current-password"
+      style="display:block; width:100%; padding:12px; margin:8px 0 16px;"
+    >
+
+    <button type="submit" style="padding:12px 20px;">Giriş Yap</button>
+    <p id="loginMessage"></p>
+  </form>
+</div>
+
+<div class="app">
   <header class="top">
     <div class="brand-row">
       <div>
@@ -152,6 +178,7 @@
             </select>
           </div>
         </div>
+
         <div class="field-error" id="timeSlotError" hidden>Bu tarihte bu saat aralığı zaten dolu. Lütfen başka bir saat aralığı seçin.</div>
 
         <div class="two-col">
@@ -199,6 +226,7 @@
               <input type="number" id="expCake" min="0" step="0.01" placeholder="0">
             </div>
           </div>
+
           <div class="two-col">
             <div class="field">
               <label for="expDrinks">İçecek (₺)</label>
@@ -209,6 +237,7 @@
               <input type="number" id="expSnacks" min="0" step="0.01" placeholder="0">
             </div>
           </div>
+
           <div class="two-col">
             <div class="field">
               <label for="expMirror">Ayna (₺)</label>
@@ -219,10 +248,12 @@
               <input type="number" id="expRibbon" min="0" step="0.01" placeholder="0">
             </div>
           </div>
+
           <div class="field" style="margin-bottom:0;">
             <label for="expStaff">Personel (₺)</label>
             <input type="number" id="expStaff" min="0" step="0.01" placeholder="0">
           </div>
+
           <div class="expense-summary" id="expenseSummaryDisplay">Toplam Gider: ₺0 · Net Kâr: ₺0</div>
         </div>
 
@@ -255,14 +286,17 @@
           <label for="pkgName">Paket Adı</label>
           <input type="text" id="pkgName" placeholder="örn. Ekonomik Paket" required>
         </div>
+
         <div class="field">
           <label for="pkgDescription">Paket İçeriği</label>
           <textarea id="pkgDescription" placeholder="Bu pakete dahil olan hizmetleri yazın…"></textarea>
         </div>
+
         <div class="field">
           <label for="pkgPrice">Fiyat (₺)</label>
           <input type="number" id="pkgPrice" min="0" step="0.01" placeholder="örn. 30000" inputmode="decimal">
         </div>
+
         <div class="sheet-actions">
           <button type="button" class="btn danger" id="deletePkgBtn" style="display:none;">Sil</button>
           <button type="button" class="btn ghost" id="cancelPkgBtn">Vazgeç</button>
@@ -271,8 +305,8 @@
       </form>
     </div>
   </section>
-
 </div>
+
 <script type="module" src="firebase-init.js"></script>
 <script src="app.js"></script>
 </body>
