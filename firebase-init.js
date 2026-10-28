@@ -1,4 +1,3 @@
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
 
 import {
@@ -40,7 +39,7 @@ window.authUI = {
   }
 };
 
-let db;
+let db = null;
 
 try {
   db = initializeFirestore(app, {
@@ -93,21 +92,24 @@ function createCloud() {
 }
 
 window.cloud = null;
+window.authState = {
+  ready: false,
+  signedIn: false,
+  email: null
+};
 
 onAuthStateChanged(auth, user => {
-  if (user && db) {
-    window.cloud = createCloud();
-    window.dispatchEvent(new Event("cloud-ready"));
-  } else {
-    window.cloud = null;
-  }
+  window.cloud = user ? createCloud() : null;
 
-  window.dispatchEvent(
-    new CustomEvent("auth-state-changed", {
-      detail: {
-        signedIn: Boolean(user),
-        email: user ? user.email : null
-      }
-    })
-  );
+  window.authState = {
+    ready: true,
+    signedIn: Boolean(user),
+    email: user ? user.email : null
+  };
+
+  window.dispatchEvent(new Event("auth-state-changed"));
+
+  if (user && window.cloud) {
+    window.dispatchEvent(new Event("cloud-ready"));
+  }
 });
