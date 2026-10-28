@@ -1,6 +1,6 @@
-// Firebase/Firestore köprüsü — app.js (klasik script) bu dosyanın
-// oluşturduğu window.cloud nesnesini kullanarak buluta senkronize olur.
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -10,6 +10,13 @@ import {
   deleteDoc,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut
+} from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAG4LJqF4EGgIt0J19TWAgFchiK7cCqJJU",
@@ -22,51 +29,85 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+window.authUI = {
+  signIn(email, password) {
+    return signInWithEmailAndPassword(auth, email, password);
+  },
+  signOut() {
+    return signOut(auth);
+  }
+};
 
 let db;
+
 try {
-  // Çevrimdışıyken de çalışabilsin diye yerel önbellek açık
-  db = initializeFirestore(app, { localCache: persistentLocalCache() });
-} catch (e) {
-  console.error("Firestore başlatılamadı:", e);
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache()
+  });
+} catch (error) {
+  console.error("Firestore başlatma hatası:", error);
 }
 
-if (db) {
-  window.cloud = {
+function createCloud() {
+  if (!db) return null;
+
+  return {
     onReservations(callback) {
       return onSnapshot(
         collection(db, "reservations"),
-        (snap) => callback(snap.docs.map((d) => d.data())),
-        (err) => console.error("Rezervasyon senkronizasyon hatası:", err)
+        snapshot => callback(snapshot.docs.map(d => d.data())),
+        error => console.error("Rezervasyon senkronizasyon hatası:", error)
       );
     },
+
     onPackages(callback) {
       return onSnapshot(
         collection(db, "packages"),
-        (snap) => callback(snap.docs.map((d) => d.data())),
-        (err) => console.error("Paket senkronizasyon hatası:", err)
+        snapshot => callback(snapshot.docs.map(d => d.data())),
+        error => console.error("Paket senkronizasyon hatası:", error)
       );
     },
+
     setReservation(data) {
-      return setDoc(doc(db, "reservations", data.id), data).catch((e) =>
-        console.error("Rezervasyon buluta yazılamadı:", e)
-      );
+      return setDoc(doc(db, "reservations", data.id), data)
+        .catch(error => console.error("Rezervasyon kaydedilemedi:", error));
     },
+
     deleteReservation(id) {
-      return deleteDoc(doc(db, "reservations", id)).catch((e) =>
-        console.error("Rezervasyon buluttan silinemedi:", e)
-      );
+      return deleteDoc(doc(db, "reservations", id))
+        .catch(error => console.error("Rezervasyon silinemedi:", error));
     },
+
     setPackage(data) {
-      return setDoc(doc(db, "packages", data.id), data).catch((e) =>
-        console.error("Paket buluta yazılamadı:", e)
-      );
+      return setDoc(doc(db, "packages", data.id), data)
+        .catch(error => console.error("Paket kaydedilemedi:", error));
     },
+
     deletePackage(id) {
-      return deleteDoc(doc(db, "packages", id)).catch((e) =>
-        console.error("Paket buluttan silinemedi:", e)
-      );
+      return deleteDoc(doc(db, "packages", id))
+        .catch(error => console.error("Paket silinemedi:", error));
     }
   };
-  window.dispatchEvent(new Event("cloud-ready"));
 }
+
+window.cloud = null;
+
+onAuthStateChanged(auth, user => {
+  if (user && db) {
+    window.cloud = createCloud();
+    window.dispatchEvent(new Event("cloud-ready"));
+  } else {
+    window.cloud = null;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("auth-state-changed", {
+      detail: {
+        signedIn: Boolean(user),
+        email: user ? user.email : null
+      }
+    })
+  );
+});
