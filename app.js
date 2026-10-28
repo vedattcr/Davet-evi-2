@@ -230,20 +230,24 @@
       const pkg = packages.find(p => p.id === editBtn.dataset.id);
       if(pkg) openPackageForm(pkg);
     }else if(delBtn){
-      packages = packages.filter(p => p.id !== delBtn.dataset.id);
+      const removedId = delBtn.dataset.id;
+      packages = packages.filter(p => p.id !== removedId);
       savePackages();
       renderPackageList();
       renderPackageOptions();
+      if(window.cloud) window.cloud.deletePackage(removedId);
     }
   });
 
   deletePkgBtn.addEventListener('click', () => {
     if(!editingPkgId) return;
-    packages = packages.filter(p => p.id !== editingPkgId);
+    const removedId = editingPkgId;
+    packages = packages.filter(p => p.id !== removedId);
     savePackages();
     renderPackageList();
     renderPackageOptions();
     closePackageForm();
+    if(window.cloud) window.cloud.deletePackage(removedId);
   });
 
   packageForm.addEventListener('submit', (e) => {
@@ -266,6 +270,7 @@
     renderPackageList();
     renderPackageOptions();
     closePackageForm();
+    if(window.cloud) window.cloud.setPackage(data);
   });
 
   function load(){
@@ -705,10 +710,12 @@
 
   deleteBtn.addEventListener('click', () => {
     if(!editingId) return;
-    reservations = reservations.filter(r => r.id !== editingId);
+    const removedId = editingId;
+    reservations = reservations.filter(r => r.id !== removedId);
     save();
     render();
     closeSheet();
+    if(window.cloud) window.cloud.deleteReservation(removedId);
   });
 
   form.addEventListener('submit', (e) => {
@@ -757,6 +764,7 @@
     save();
     render();
     closeSheet();
+    if(window.cloud) window.cloud.setReservation(data);
   });
 
   async function exportData(){
@@ -790,6 +798,8 @@
   function mergeImportedData(payload){
     let addedReservations = 0;
     let addedPackages = 0;
+    const newReservations = [];
+    const newPackages = [];
 
     if(Array.isArray(payload.reservations)){
       const existingIds = new Set(reservations.map(r => r.id));
@@ -799,6 +809,7 @@
           r = Object.assign({}, r, { id: uid() });
         }
         reservations.push(r);
+        newReservations.push(r);
         addedReservations++;
       });
       save();
@@ -809,7 +820,9 @@
       payload.packages.forEach(p => {
         if(!p || typeof p !== 'object') return;
         if(existingNames.has(p.name)) return; // aynı isimde paket varsa atla
-        packages.push(Object.assign({}, p, { id: uid() }));
+        const newPkg = Object.assign({}, p, { id: uid() });
+        packages.push(newPkg);
+        newPackages.push(newPkg);
         addedPackages++;
       });
       savePackages();
@@ -817,6 +830,10 @@
 
     renderPackageOptions();
     render();
+    if(window.cloud){
+      newReservations.forEach(r => window.cloud.setReservation(r));
+      newPackages.forEach(p => window.cloud.setPackage(p));
+    }
     alert('İçe aktarma tamamlandı: ' + addedReservations + ' rezervasyon, ' + addedPackages + ' paket eklendi.');
   }
 
@@ -848,6 +865,48 @@
   // ?action=new ile açıldığında formu otomatik aç
   if(new URLSearchParams(window.location.search).get('action') === 'new'){
     openSheet(null);
+  }
+
+  // Bulut senkronizasyonu (Firebase/Firestore): window.cloud, firebase-init.js
+  // tarafından hazırlanınca kurulur. Cihazlar arası aynı veriyi görmek için.
+  function setupCloudSync(){
+    if(!window.cloud) return;
+    let firstReservationsSnapshot = true;
+    let firstPackagesSnapshot = true;
+
+    window.cloud.onReservations((cloudReservations) => {
+      if(firstReservationsSnapshot){
+        firstReservationsSnapshot = false;
+        if(cloudReservations.length === 0 && reservations.length > 0){
+          // İlk kurulum: bu cihazdaki mevcut verileri buluta taşı
+          reservations.forEach(r => window.cloud.setReservation(r));
+          return; // kendi yazdığımız veriyle snapshot tekrar tetiklenecek
+        }
+      }
+      reservations = cloudReservations;
+      save();
+      render();
+    });
+
+    window.cloud.onPackages((cloudPackages) => {
+      if(firstPackagesSnapshot){
+        firstPackagesSnapshot = false;
+        if(cloudPackages.length === 0 && packages.length > 0){
+          packages.forEach(p => window.cloud.setPackage(p));
+          return;
+        }
+      }
+      packages = cloudPackages;
+      savePackages();
+      renderPackageOptions();
+      render();
+    });
+  }
+
+  if(window.cloud){
+    setupCloudSync();
+  }else{
+    window.addEventListener('cloud-ready', setupCloudSync, { once: true });
   }
 })();
 
