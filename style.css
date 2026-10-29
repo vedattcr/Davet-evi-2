@@ -726,3 +726,83 @@
   @media (prefers-reduced-motion: reduce){
     .sheet, .scrim, .filter-chip, .status-toggle button{transition:none !important;}
   }
+
+  /* Giriş ve personel ekranları — marka ile uyumlu */
+  #loginScreen, #staffScreen{
+    font-family:'Manrope', ui-sans-serif, system-ui, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  #loginScreen h2, #staffScreen h2{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.6rem;
+    margin:0 0 4px;
+  }
+  #loginScreen p, #staffScreen > p{
+    color:var(--ink-soft);
+    font-size:0.9rem;
+    margin:0 0 20px;
+  }
+  #loginForm label{
+    display:block;
+    font-size:0.78rem;
+    font-weight:700;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  #loginForm input{
+    border-radius:10px !important;
+    border:1px solid var(--border) !important;
+    background:var(--surface) !important;
+    color:var(--ink) !important;
+    font-family:'Manrope', sans-serif !important;
+    font-size:0.94rem !important;
+  }
+  #loginForm input:focus{
+    outline:2px solid var(--gold);
+    outline-offset:1px;
+  }
+  #loginForm button[type="submit"]{
+    width:100%;
+    border-radius:10px;
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--bg);
+    font-family:'Manrope', sans-serif;
+    font-weight:700;
+    font-size:0.92rem;
+    cursor:pointer;
+  }
+  #loginMessage{
+    margin-top:12px;
+    font-size:0.85rem;
+    color:var(--clay);
+  }
+  #staffReservationList > div{
+    background:var(--surface) !important;
+    border-color:var(--border) !important;
+    font-family:'Manrope', sans-serif;
+  }
+  #staffReservationList h3{
+    font-family:'Fraunces', serif;
+    margin:0 0 6px;
+    color:var(--ink);
+  }
+  #staffReservationList p{
+    margin:2px 0;
+    color:var(--ink-soft);
+    font-size:0.85rem;
+  }
+  #staffLogoutBtn{
+    margin-top:16px;
+    padding:11px 16px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--ink);
+    font-family:'Manrope', sans-serif;
+    font-weight:700;
+    cursor:pointer;
+  }

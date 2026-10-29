@@ -791,7 +791,6 @@
     }catch(e){
       console.error('İndirme başarısız:', e);
     }
-    // Yedekleme mümkün olmadıysa, kullanıcı verisini kendi kopyalayabilsin diye göster
     window.prompt('Yedek dosyası otomatik indirilemedi. Aşağıdaki metni kopyalayıp bir dosyaya kaydedebilirsin:', json);
   }
 
@@ -819,7 +818,7 @@
       const existingNames = new Set(packages.map(p => p.name));
       payload.packages.forEach(p => {
         if(!p || typeof p !== 'object') return;
-        if(existingNames.has(p.name)) return; // aynı isimde paket varsa atla
+        if(existingNames.has(p.name)) return;
         const newPkg = Object.assign({}, p, { id: uid() });
         packages.push(newPkg);
         newPackages.push(newPkg);
@@ -861,14 +860,10 @@
   renderPackageOptions();
   render();
 
-  // Uygulama kısayolu: manifest.json'daki "Yeni Rezervasyon" kısayolu
-  // ?action=new ile açıldığında formu otomatik aç
   if(new URLSearchParams(window.location.search).get('action') === 'new'){
     openSheet(null);
   }
 
-  // Bulut senkronizasyonu (Firebase/Firestore): window.cloud, firebase-init.js
-  // tarafından hazırlanınca kurulur. Cihazlar arası aynı veriyi görmek için.
   function setupCloudSync(){
     if(!window.cloud) return;
     let firstReservationsSnapshot = true;
@@ -878,9 +873,8 @@
       if(firstReservationsSnapshot){
         firstReservationsSnapshot = false;
         if(cloudReservations.length === 0 && reservations.length > 0){
-          // İlk kurulum: bu cihazdaki mevcut verileri buluta taşı
           reservations.forEach(r => window.cloud.setReservation(r));
-          return; // kendi yazdığımız veriyle snapshot tekrar tetiklenecek
+          return;
         }
       }
       reservations = cloudReservations;
@@ -909,11 +903,3 @@
     window.addEventListener('cloud-ready', setupCloudSync, { once: true });
   }
 })();
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(err => {
-      console.error('Service worker kaydı başarısız:', err);
-    });
-  });
-}

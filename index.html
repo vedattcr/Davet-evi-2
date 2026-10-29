@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -309,6 +308,18 @@
   </section>
 </div>
 
+<script>
+  // Service worker: giriş ekranından itibaren çalışsın diye burada,
+  // admin/personel durumu ne olursa olsun kaydolur.
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err => {
+        console.error('Service worker kaydı başarısız:', err);
+      });
+    });
+  }
+</script>
+
 <!-- Firebase ve ekran yönetimi -->
 <script type="module">
   const loginScreen = document.getElementById("loginScreen");
@@ -489,5 +500,4 @@
   }
 </script>
 </body>
-  </html>
-
+</html>

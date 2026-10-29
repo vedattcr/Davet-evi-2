@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'davet-evi-takip-v4';
+const CACHE_VERSION = 'davet-evi-takip-v5';
 const APP_SHELL = [
   './',
   './index.html',
@@ -40,12 +40,14 @@ self.addEventListener('activate', (event) => {
 });
 
 // App-shell (kendi dosyalarımız) için: cache-first, ağ yoksa önbellekten sun.
-// Diğer istekler (ör. Google Fonts) için: ağı dene, olmazsa önbelleğe düş, hem de arka planda önbelleği güncelle.
+// Firebase/Google altyapısı için: karışma, doğrudan ağa bırak.
+// Diğer harici istekler (ör. Google Fonts) için: ağı dene, olmazsa önbelleğe düş.
 const PASSTHROUGH_HOSTS = [
   'firestore.googleapis.com',
   'firebaseapp.com',
   'firebaseio.com',
-  'googleapis.com'
+  'googleapis.com',
+  'gstatic.com'
 ];
 
 self.addEventListener('fetch', (event) => {
@@ -57,7 +59,6 @@ self.addEventListener('fetch', (event) => {
   const isPassthrough = PASSTHROUGH_HOSTS.some((h) => url.hostname.endsWith(h));
 
   if(isPassthrough){
-    // Firebase/Firestore'un canlı bağlantılarına karışmadan doğrudan ağa bırak
     return;
   }
 
