@@ -368,8 +368,10 @@
     mainApp.style.display = "block";
     loadApp();
   } else if (state.role === "staff") {
-    mainApp.style.display = "none";
-    if (staffScreen) staffScreen.style.display = "block";
+  mainApp.style.display = "none";
+  if (staffScreen) staffScreen.style.display = "block";
+  startStaffReservations();
+}
   } else {
     mainApp.style.display = "none";
     if (staffScreen) staffScreen.style.display = "none";
