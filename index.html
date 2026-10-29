@@ -345,39 +345,57 @@
     document.body.appendChild(script);
   }
 
+  
   function updateAuthScreen() {
-  const state = window.authState;
-  const staffScreen = document.getElementById("staffScreen");
-  const mainApp = document.getElementById("mainApp");
+    const state = window.authState;
+    const staffScreen = document.getElementById("staffScreen");
 
-  if (!state || !state.ready) return;
+    if (!state || !state.ready) return;
 
-  if (!state.signedIn) {
-    loginScreen.style.display = "block";
-    mainApp.style.display = "none";
-    if (staffScreen) staffScreen.style.display = "none";
+    if (!state.signedIn) {
+      loginScreen.style.display = "block";
+      mainApp.style.display = "none";
+
+      if (staffScreen) {
+        staffScreen.style.display = "none";
+      }
+
+      loginMessage.textContent = "";
+      return;
+    }
+
+    loginScreen.style.display = "none";
     loginMessage.textContent = "";
-    return;
+
+    if (state.role === "admin") {
+      if (staffScreen) {
+        staffScreen.style.display = "none";
+      }
+
+      mainApp.style.display = "block";
+      loadApp();
+
+    } else if (state.role === "staff") {
+      mainApp.style.display = "none";
+
+      if (staffScreen) {
+        staffScreen.style.display = "block";
+      }
+
+      startStaffReservations();
+
+    } else {
+      mainApp.style.display = "none";
+
+      if (staffScreen) {
+        staffScreen.style.display = "none";
+      }
+
+      window.authUI.signOut();
+    }
   }
 
-  loginScreen.style.display = "none";
-  loginMessage.textContent = "";
-
-  if (state.role === "admin") {
-    if (staffScreen) staffScreen.style.display = "none";
-    mainApp.style.display = "block";
-    loadApp();
-  } else if (state.role === "staff") {
-  mainApp.style.display = "none";
-  if (staffScreen) staffScreen.style.display = "block";
-  startStaffReservations();
-}
-  } else {
-    mainApp.style.display = "none";
-    if (staffScreen) staffScreen.style.display = "none";
-    window.authUI.signOut();
-  }
-  }
+  
 
   window.addEventListener("auth-state-changed", updateAuthScreen);
 
