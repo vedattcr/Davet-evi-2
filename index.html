@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -27,28 +28,19 @@
   <p>Devam etmek için giriş yapın.</p>
 
   <form id="loginForm">
-    <label>E-posta adresi</label>
-    <input
-      id="loginEmail"
-      type="email"
-      required
-      autocomplete="username"
-      style="display:block; width:100%; padding:12px; margin:8px 0 16px;"
-    >
+    <label for="loginEmail">E-posta adresi</label>
+    <input id="loginEmail" type="email" required autocomplete="username"
+      style="display:block; width:100%; padding:12px; margin:8px 0 16px;">
 
-    <label>Şifre</label>
-    <input
-      id="loginPassword"
-      type="password"
-      required
-      autocomplete="current-password"
-      style="display:block; width:100%; padding:12px; margin:8px 0 16px;"
-    >
+    <label for="loginPassword">Şifre</label>
+    <input id="loginPassword" type="password" required autocomplete="current-password"
+      style="display:block; width:100%; padding:12px; margin:8px 0 16px;">
 
     <button type="submit" style="padding:12px 20px;">Giriş Yap</button>
-    <p id="loginMessage"></p>
+    <p id="loginMessage" role="status"></p>
   </form>
 </div>
+
 <!-- PERSONEL EKRANI -->
 <div id="staffScreen" style="display:none; padding:20px; max-width:700px; margin:20px auto;">
   <h2>Dev Davet Evi</h2>
@@ -56,6 +48,8 @@
   <div id="staffReservationList">Rezervasyonlar yükleniyor...</div>
   <button type="button" id="staffLogoutBtn">Güvenli Çıkış</button>
 </div>
+
+<!-- ANA UYGULAMA -->
 <div class="app" id="mainApp" style="display:none;">
   <header class="top">
     <div class="brand-row">
@@ -185,7 +179,9 @@
           </div>
         </div>
 
-        <div class="field-error" id="timeSlotError" hidden>Bu tarihte bu saat aralığı zaten dolu. Lütfen başka bir saat aralığı seçin.</div>
+        <div class="field-error" id="timeSlotError" hidden>
+          Bu tarihte bu saat aralığı zaten dolu. Lütfen başka bir saat aralığı seçin.
+        </div>
 
         <div class="two-col">
           <div class="field">
@@ -313,8 +309,7 @@
   </section>
 </div>
 
-<script type="module" src="firebase-init.js"></script>
-
+<!-- Firebase ve ekran yönetimi -->
 <script type="module">
   const loginScreen = document.getElementById("loginScreen");
   const mainApp = document.getElementById("mainApp");
@@ -322,85 +317,116 @@
   const loginEmail = document.getElementById("loginEmail");
   const loginPassword = document.getElementById("loginPassword");
   const loginMessage = document.getElementById("loginMessage");
+  const staffScreen = document.getElementById("staffScreen");
+  const staffLogoutBtn = document.getElementById("staffLogoutBtn");
 
   let appLoaded = false;
+  let staffUnsubscribe = null;
+  let firebaseReady = false;
+
+  function showError(message) {
+    loginMessage.textContent = message;
+    loginScreen.style.display = "block";
+    mainApp.style.display = "none";
+    if (staffScreen) staffScreen.style.display = "none";
+  }
 
   function loadApp() {
     if (appLoaded) return;
 
     appLoaded = true;
-
     const script = document.createElement("script");
-    script.src = "app.js";
+    script.src = "./app.js";
+
     script.onload = () => {
       console.log("Dev Davet Evi uygulaması yüklendi.");
     };
+
     script.onerror = () => {
       appLoaded = false;
-      loginMessage.textContent = "Uygulama yüklenemedi. Sayfayı yenileyin.";
-      loginScreen.style.display = "block";
-      mainApp.style.display = "none";
+      showError("Uygulama dosyası yüklenemedi. app.js dosyasını kontrol edin.");
     };
 
     document.body.appendChild(script);
   }
 
-  
+  function startStaffReservations() {
+    if (!window.staffCloud || staffUnsubscribe) return;
+
+    const list = document.getElementById("staffReservationList");
+
+    staffUnsubscribe = window.staffCloud.onReservations((reservations) => {
+      list.replaceChildren();
+
+      if (!reservations.length) {
+        list.textContent = "Henüz rezervasyon bulunmuyor.";
+        return;
+      }
+
+      reservations.sort((a, b) =>
+        (a.eventDate || "").localeCompare(b.eventDate || "")
+      );
+
+      reservations.forEach((r) => {
+        const card = document.createElement("div");
+        card.style.cssText =
+          "padding:14px;margin:12px 0;border:1px solid #ddd;border-radius:10px;";
+
+        const title = document.createElement("h3");
+        title.textContent =
+          [r.brideName, r.groomName].filter(Boolean).join(" - ") ||
+          r.eventType ||
+          "Etkinlik";
+
+        const details = document.createElement("p");
+        details.textContent =
+          "Tarih: " + (r.eventDate || "Belirtilmedi") +
+          " | Saat: " + (r.eventTime || "Belirtilmedi");
+
+        const type = document.createElement("p");
+        type.textContent = "Etkinlik: " + (r.eventType || "Belirtilmedi");
+
+        card.append(title, details, type);
+        list.appendChild(card);
+      });
+    });
+  }
+
   function updateAuthScreen() {
     const state = window.authState;
-    const staffScreen = document.getElementById("staffScreen");
 
     if (!state || !state.ready) return;
 
     if (!state.signedIn) {
       loginScreen.style.display = "block";
       mainApp.style.display = "none";
-
-      if (staffScreen) {
-        staffScreen.style.display = "none";
-      }
-
-      loginMessage.textContent = "";
+      if (staffScreen) staffScreen.style.display = "none";
       return;
     }
 
     loginScreen.style.display = "none";
-    loginMessage.textContent = "";
 
     if (state.role === "admin") {
-      if (staffScreen) {
-        staffScreen.style.display = "none";
-      }
-
+      if (staffScreen) staffScreen.style.display = "none";
       mainApp.style.display = "block";
       loadApp();
-
     } else if (state.role === "staff") {
       mainApp.style.display = "none";
-
-      if (staffScreen) {
-        staffScreen.style.display = "block";
-      }
-
+      if (staffScreen) staffScreen.style.display = "block";
       startStaffReservations();
-
     } else {
-      mainApp.style.display = "none";
-
-      if (staffScreen) {
-        staffScreen.style.display = "none";
-      }
-
-      window.authUI.signOut();
+      showError("Bu hesap için yetki tanımlanmamış.");
     }
   }
 
-  
-
-  window.addEventListener("auth-state-changed", updateAuthScreen);
-
-  loginForm.addEventListener("submit", async event => {
+  loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!firebaseReady || !window.authUI) {
+      loginMessage.textContent =
+        "Bağlantı hazırlanıyor. Birkaç saniye sonra tekrar deneyin.";
+      return;
+    }
 
     loginMessage.textContent = "Giriş yapılıyor…";
 
@@ -409,13 +435,16 @@
         loginEmail.value.trim(),
         loginPassword.value
       );
-
       loginPassword.value = "";
       loginMessage.textContent = "Giriş başarılı.";
     } catch (error) {
       console.error("Giriş hatası:", error);
 
-      if (error.code === "auth/invalid-credential") {
+      if (
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/user-not-found"
+      ) {
         loginMessage.textContent = "E-posta veya şifre hatalı.";
       } else if (error.code === "auth/too-many-requests") {
         loginMessage.textContent =
@@ -425,63 +454,40 @@
           "Bağlantı hatası. İnternetinizi kontrol edin.";
       } else {
         loginMessage.textContent =
-          "Giriş yapılamadı. Bilgileri ve Firebase ayarlarını kontrol edin.";
+          "Giriş başarısız: " + (error.message || "Bilinmeyen hata");
       }
     }
   });
-let staffUnsubscribe = null;
 
-function startStaffReservations() {
-  if (!window.staffCloud || staffUnsubscribe) return;
-
-  const list = document.getElementById("staffReservationList");
-
-  staffUnsubscribe = window.staffCloud.onReservations((reservations) => {
-    list.replaceChildren();
-
-    if (!reservations.length) {
-      list.textContent = "Henüz rezervasyon bulunmuyor.";
-      return;
-    }
-
-    reservations.sort((a, b) =>
-      (a.eventDate || "").localeCompare(b.eventDate || "")
-    );
-
-    reservations.forEach((r) => {
-      const card = document.createElement("div");
-      card.style.cssText =
-        "padding:14px;margin:12px 0;border:1px solid #ddd;border-radius:10px;";
-
-      const title = document.createElement("h3");
-      title.textContent =
-        [r.brideName, r.groomName].filter(Boolean).join(" - ") ||
-        r.eventType ||
-        "Etkinlik";
-
-      const details = document.createElement("p");
-      details.textContent =
-        "Tarih: " + (r.eventDate || "Belirtilmedi") +
-        " | Saat: " + (r.eventTime || "Belirtilmedi");
-
-      const type = document.createElement("p");
-      type.textContent = "Etkinlik: " + (r.eventType || "Belirtilmedi");
-
-      card.append(title, details, type);
-      list.appendChild(card);
+  if (staffLogoutBtn) {
+    staffLogoutBtn.addEventListener("click", async () => {
+      try {
+        if (staffUnsubscribe) {
+          staffUnsubscribe();
+          staffUnsubscribe = null;
+        }
+        if (window.authUI) {
+          await window.authUI.signOut();
+        }
+      } catch (error) {
+        console.error("Çıkış hatası:", error);
+      }
     });
-  });
-}
-
-document.getElementById("staffLogoutBtn").addEventListener("click", async () => {
-  if (staffUnsubscribe) {
-    staffUnsubscribe();
-    staffUnsubscribe = null;
   }
 
-  await window.authUI.signOut();
-});
-  updateAuthScreen();
+  window.addEventListener("auth-state-changed", updateAuthScreen);
+
+  try {
+    await import("./firebase-init.js");
+    firebaseReady = true;
+    updateAuthScreen();
+  } catch (error) {
+    console.error("Firebase başlatma hatası:", error);
+    showError(
+      "Firebase bağlantısı başlatılamadı. İnternet bağlantısını ve firebase-init.js dosyasını kontrol edin."
+    );
+  }
 </script>
 </body>
-</html>
+  </html>
+
