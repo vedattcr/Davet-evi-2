@@ -409,7 +409,58 @@
       }
     }
   });
+let staffUnsubscribe = null;
 
+function startStaffReservations() {
+  if (!window.staffCloud || staffUnsubscribe) return;
+
+  const list = document.getElementById("staffReservationList");
+
+  staffUnsubscribe = window.staffCloud.onReservations((reservations) => {
+    list.replaceChildren();
+
+    if (!reservations.length) {
+      list.textContent = "Henüz rezervasyon bulunmuyor.";
+      return;
+    }
+
+    reservations.sort((a, b) =>
+      (a.eventDate || "").localeCompare(b.eventDate || "")
+    );
+
+    reservations.forEach((r) => {
+      const card = document.createElement("div");
+      card.style.cssText =
+        "padding:14px;margin:12px 0;border:1px solid #ddd;border-radius:10px;";
+
+      const title = document.createElement("h3");
+      title.textContent =
+        [r.brideName, r.groomName].filter(Boolean).join(" - ") ||
+        r.eventType ||
+        "Etkinlik";
+
+      const details = document.createElement("p");
+      details.textContent =
+        "Tarih: " + (r.eventDate || "Belirtilmedi") +
+        " | Saat: " + (r.eventTime || "Belirtilmedi");
+
+      const type = document.createElement("p");
+      type.textContent = "Etkinlik: " + (r.eventType || "Belirtilmedi");
+
+      card.append(title, details, type);
+      list.appendChild(card);
+    });
+  });
+}
+
+document.getElementById("staffLogoutBtn").addEventListener("click", async () => {
+  if (staffUnsubscribe) {
+    staffUnsubscribe();
+    staffUnsubscribe = null;
+  }
+
+  await window.authUI.signOut();
+});
   updateAuthScreen();
 </script>
 </body>
