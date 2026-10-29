@@ -346,19 +346,35 @@
   }
 
   function updateAuthScreen() {
-    const state = window.authState;
+  const state = window.authState;
+  const staffScreen = document.getElementById("staffScreen");
+  const mainApp = document.getElementById("mainApp");
 
-    if (!state || !state.ready) return;
+  if (!state || !state.ready) return;
 
-    if (state.signedIn) {
-      loginScreen.style.display = "none";
-      mainApp.style.display = "block";
-      loginMessage.textContent = "";
-      loadApp();
-    } else {
-      mainApp.style.display = "none";
-      loginScreen.style.display = "block";
-    }
+  if (!state.signedIn) {
+    loginScreen.style.display = "block";
+    mainApp.style.display = "none";
+    if (staffScreen) staffScreen.style.display = "none";
+    loginMessage.textContent = "";
+    return;
+  }
+
+  loginScreen.style.display = "none";
+  loginMessage.textContent = "";
+
+  if (state.role === "admin") {
+    if (staffScreen) staffScreen.style.display = "none";
+    mainApp.style.display = "block";
+    loadApp();
+  } else if (state.role === "staff") {
+    mainApp.style.display = "none";
+    if (staffScreen) staffScreen.style.display = "block";
+  } else {
+    mainApp.style.display = "none";
+    if (staffScreen) staffScreen.style.display = "none";
+    window.authUI.signOut();
+  }
   }
 
   window.addEventListener("auth-state-changed", updateAuthScreen);
