@@ -1,10 +1,12 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
 
 import {
-  initializeFirestore,
-  persistentLocalCache,
+  getFirestore,
   collection,
   doc,
+  getDoc,
+  getDocs,
   setDoc,
   deleteDoc,
   onSnapshot
@@ -27,8 +29,11 @@ const firebaseConfig = {
   measurementId: "G-YQPQ36BN9T"
 };
 
+const ADMIN_UID = "ulqv1ilJRxWp6ZsZt8RiK5H6XMN2";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 window.authUI = {
   signIn(email, password) {
@@ -39,19 +44,21 @@ window.authUI = {
   }
 };
 
-let db = null;
-
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache()
-  });
-} catch (error) {
-  console.error("Firestore başlatma hatası:", error);
+// Personelin görebileceği alanlar.
+// Finansal ve özel iletişim bilgileri buraya alınmaz.
+function staffSafeData(data) {
+  return {
+    id: data.id,
+    brideName: data.brideName || "",
+    groomName: data.groomName || "",
+    eventType: data.eventType || "",
+    eventDate: data.eventDate || "",
+    eventTime: data.eventTime || "",
+    status: data.status || "tentative"
+  };
 }
 
-function createCloud() {
-  if (!db) return null;
-
+function createAdminCloud() {
   return {
     onReservations(callback) {
       return onSnapshot(
@@ -69,47 +76,151 @@ function createCloud() {
       );
     },
 
-    setReservation(data) {
-      return setDoc(doc(db, "reservations", data.id), data)
-        .catch(error => console.error("Rezervasyon kaydedilemedi:", error));
+    async setReservation(data) {
+      await setDoc(doc(db, "reservations", data.id), data);
+      await setDoc(
+        doc(db, "staffReservations", data.id),
+        staffSafeData(data)
+      );
     },
 
-    deleteReservation(id) {
-      return deleteDoc(doc(db, "reservations", id))
-        .catch(error => console.error("Rezervasyon silinemedi:", error));
+    async deleteReservation(id) {
+      await deleteDoc(doc(db, "reservations", id));
+      await deleteDoc(doc(db, "staffReservations", id));
     },
 
     setPackage(data) {
-      return setDoc(doc(db, "packages", data.id), data)
-        .catch(error => console.error("Paket kaydedilemedi:", error));
+      return setDoc(doc(db, "packages", data.id), data);
     },
 
     deletePackage(id) {
-      return deleteDoc(doc(db, "packages", id))
-        .catch(error => console.error("Paket silinemedi:", error));
+      return deleteDoc(doc(db, "packages", id));
+    },
+
+    // Var olan rezervasyonları personel için güvenli alana kopyalar.
+    async syncStaffReservations() {
+      const snapshot = await getDocs(collection(db, "reservations"));
+
+      for (const item of snapshot.docs) {
+        const data = item.data();
+
+        await setDoc(
+          doc(db, "staffReservations", item.id),
+          staffSafeData({ ...data, id: item.id })
+        );
+      }
+
+      return snapshot.size;
+    }
+  };
+}
+
+function createStaffCloud() {
+  return {
+    onReservations(callback) {
+      return onSnapshot(
+        collection(db, "staffReservations"),
+        snapshot => callback(snapshot.docs.map(d => d.data())),
+        error => console.error(
+          "Personel rezervasyonları yüklenemedi:",
+          error
+        )
+      );
     }
   };
 }
 
 window.cloud = null;
+window.staffCloud = null;
+
 window.authState = {
   ready: false,
   signedIn: false,
-  email: null
+  email: null,
+  role: null
 };
 
-onAuthStateChanged(auth, user => {
-  window.cloud = user ? createCloud() : null;
+onAuthStateChanged(auth, async user => {
+  window.cloud = null;
+  window.staffCloud = null;
 
-  window.authState = {
-    ready: true,
-    signedIn: Boolean(user),
-    email: user ? user.email : null
-  };
+  if (!user) {
+    window.authState = {
+      ready: true,
+      signedIn: false,
+      email: null,
+      role: null
+    };
+
+    window.dispatchEvent(new Event("auth-state-changed"));
+    return;
+  }
+
+  try {
+    if (user.uid === ADMIN_UID) {
+      window.cloud = createAdminCloud();
+
+      window.authState = {
+        ready: true,
+        signedIn: true,
+        email: user.email,
+        role: "admin"
+      };
+
+      window.dispatchEvent(new Event("auth-state-changed"));
+      window.dispatchEvent(new Event("cloud-ready"));
+
+      // Mevcut kayıtları güvenli personel alanına aktar.
+      try {
+        const count = await window.cloud.syncStaffReservations();
+        console.log("Personel kayıtları eşitlendi:", count);
+      } catch (error) {
+        console.error("Personel kayıtları eşitlenemedi:", error);
+      }
+
+      return;
+    }
+
+    const staffDoc = await getDoc(
+      doc(db, "staff", user.uid)
+    );
+
+    if (staffDoc.exists() && staffDoc.data().role === "staff") {
+      window.staffCloud = createStaffCloud();
+
+      window.authState = {
+        ready: true,
+        signedIn: true,
+        email: user.email,
+        role: "staff"
+      };
+    } else {
+      await signOut(auth);
+
+      window.authState = {
+        ready: true,
+        signedIn: false,
+        email: null,
+        role: null
+      };
+    }
+  } catch (error) {
+    console.error("Kullanıcı yetkisi kontrol edilemedi:", error);
+
+    window.cloud = null;
+    window.staffCloud = null;
+
+    window.authState = {
+      ready: true,
+      signedIn: false,
+      email: null,
+      role: null
+    };
+  }
 
   window.dispatchEvent(new Event("auth-state-changed"));
 
-  if (user && window.cloud) {
-    window.dispatchEvent(new Event("cloud-ready"));
+  if (window.staffCloud) {
+    window.dispatchEvent(new Event("staff-cloud-ready"));
   }
 });
